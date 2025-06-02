@@ -1,20 +1,50 @@
 package services;
 
+import Models.Car;
+import Models.CarStatus;
 import Models.Customer;
 import utils.passwordUtils;
 import java.io.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class RentalService {
     private static final String CUSTOMER_FILE = "customers.txt";
     private Map<String, Customer> customers;
+    private List<Car> cars;
 
-    public RentalService() {
-        this.customers = new HashMap<>();
-        loadCustomersFromFile();
+    public Customer getCustomer(String id) {
+        return customers.get(id);
     }
 
+    public RentalService() {
+        customers = new HashMap<>();
+        cars = new ArrayList<>();
+        loadCustomersFromFile();
+        loadCars(); // initialize cars
+    }
+    private void loadCars() {
+        cars.add(new Car("CAR001", "Toyota", "Corolla", 40.0));
+        cars.add(new Car("CAR002", "Honda", "Civic", 45.0));
+        cars.add(new Car("CAR003", "Ford", "Focus", 38.0));
+        cars.add(new Car("CAR004", "BMW", "3 Series", 70.0));
+        cars.add(new Car("CAR005", "Hyundai", "Elantra", 42.0));
+    }
+    public void showAvailableCars() {
+        System.out.println("\n🚗 Available Cars:");
+        boolean found = false;
+        for (Car car : cars) {
+            if (car.getStatus() == CarStatus.AVAILABLE) {
+                System.out.println(car);
+                found = true;
+            }
+        }
+        if (!found) {
+            System.out.println("No cars are available at the moment.");
+        }
+    }
 
 
     public boolean registerCustomer(String id, String name, String licenseNumber, String password) {
@@ -33,15 +63,22 @@ public class RentalService {
 
     public boolean login(String id, String password) {
         Customer customer = customers.get(id);
-        String hashedInput = passwordUtils.hashPassword(password);
-        if (customer != null && customer.getPassword().equals(hashedInput)) {
-            System.out.println("✅ Login successful. Welcome, " + customer.getName() + "!");
-            return true;
-        } else {
-            System.out.println("❌ Invalid ID or password.");
+
+        if (customer == null) {
+            System.out.println("❌ Login failed: Customer ID not found.");
             return false;
         }
+
+        String hashedInput = passwordUtils.hashPassword(password);
+        if (!customer.getPassword().equals(hashedInput)) {
+            System.out.println("❌ Login failed: Incorrect password.");
+            return false;
+        }
+
+        System.out.println("✅ Login successful. Welcome, " + customer.getName() + "!");
+        return true;
     }
+
 
 
 

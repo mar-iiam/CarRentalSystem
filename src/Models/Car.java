@@ -3,76 +3,36 @@ package Models;
 import java.util.Objects;
 
 public class Car {
-    private final String id;
-    private String brand;
-    private String model;
-    private int year;
-    private boolean available;
-    // Constructor
-    public Car(String id, String brand, String model, int year) {
-        this.id = id;
-        this.brand = brand;
-        this.model = model;
-        this.year = year;
-        this.available = true; // default to available
+
+        private String id;
+        private String brand;
+        private String model;
+        private double pricePerDay;
+        private CarStatus status;
+
+        public Car(String id, String brand, String model, double pricePerDay) {
+            this.id = id;
+            this.brand = brand;
+            this.model = model;
+            this.pricePerDay = pricePerDay;
+            this.status = CarStatus.AVAILABLE; // default
+        }
+
+        public String getId() { return id; }
+        public String getBrand() { return brand; }
+        public String getModel() { return model; }
+        public double getPricePerDay() { return pricePerDay; }
+        public CarStatus getStatus() { return status; }
+
+        public void setStatus(CarStatus status) {
+            this.status = status;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("Car ID: %s | Brand: %s | Model: %s | Price/Day: %.2f | Status: %s",
+                    id, brand, model, pricePerDay, status);
+        }
     }
 
-    public void setModel(String model) {
-        this.model = model;
-    }
 
-    public void setBrand(String brand) {
-        this.brand = brand;
-    }
-
-    public void setYear(int year) {
-        this.year = year;
-    }
-
-    public void setAvailable(boolean available) {
-        this.available = available;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getBrand() {
-        return brand;
-    }
-
-    public String getModel() {
-        return model;
-    }
-
-    public int getYear() {
-        return year;
-    }
-
-    public boolean isAvailable() {
-        return available;
-    }
-
-    @Override
-    public String toString() {
-        return "Car{" +
-                "id='" + id + '\'' +
-                ", brand='" + brand + '\'' +
-                ", model='" + model + '\'' +
-                ", year=" + year +
-                ", available=" + available +
-                '}';
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Car)) return false;
-        Car car = (Car) o;
-        return id.equals(car.id);
-    }
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
-    }
-}
