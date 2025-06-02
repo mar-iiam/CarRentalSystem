@@ -1,6 +1,8 @@
 import services.RentalService;
 import Models.Customer;
+import utils.DateUtils;
 
+import java.time.LocalDate;
 import java.util.Scanner;
 
 public class Main {
@@ -15,20 +17,22 @@ public class Main {
             if (loggedInCustomer == null) {
                 System.out.println("1. Register");
                 System.out.println("2. Login");
+                System.out.println("0. Exit");
             } else {
                 System.out.println("1. View Available Cars");
-                System.out.println("2. Logout");
+                System.out.println("2. Rent a Car");
+                System.out.println("3. Return Rented Car");
+                System.out.println("4. Logout");
             }
 
-            System.out.println("0. Exit");
+
             System.out.print("Enter choice: ");
             int choice = scanner.nextInt();
             scanner.nextLine(); // clear newline
 
-            switch (choice) {
-                case 1:
-                    if (loggedInCustomer == null) {
-                        // Register
+            if (loggedInCustomer == null) {
+                switch (choice) {
+                    case 1:
                         System.out.print("ID: ");
                         String id = scanner.nextLine();
                         System.out.print("Name: ");
@@ -38,15 +42,9 @@ public class Main {
                         System.out.print("Password: ");
                         String password = scanner.nextLine();
                         rentalService.registerCustomer(id, name, license, password);
-                    } else {
-                        // View Available Cars
-                        rentalService.showAvailableCars();
-                    }
-                    break;
+                        break;
 
-                case 2:
-                    if (loggedInCustomer == null) {
-                        // Login
+                    case 2:
                         System.out.print("ID: ");
                         String loginId = scanner.nextLine();
                         System.out.print("Password: ");
@@ -54,20 +52,81 @@ public class Main {
                         if (rentalService.login(loginId, loginPassword)) {
                             loggedInCustomer = rentalService.getCustomer(loginId);
                         }
-                    } else {
-                        // Logout
+                        break;
+
+                    case 0:
+                        System.out.println("👋 Goodbye!");
+                        scanner.close();
+                        return;
+
+                    default:
+                        System.out.println("❌ Invalid choice.");
+                }
+            } else {
+                switch (choice) {
+                    case 1:
+                        rentalService.showAvailableCars();
+                        break;
+
+                    case 2:
+                        if (loggedInCustomer.getRentedCarId() != null) {
+                            System.out.println("⚠️ You already rented a car. Return it first.");
+                        } else {
+                            rentalService.showAvailableCars();
+
+                            System.out.print("Enter Car ID to rent: ");
+                            String carId = scanner.nextLine();
+
+                            System.out.print("Enter Start Date (yyyy-MM-dd): ");
+                            String startDateStr = scanner.nextLine();
+                            System.out.print("Enter End Date (yyyy-MM-dd): ");
+                            String endDateStr = scanner.nextLine();
+
+                            LocalDate startDate = DateUtils.parseDate(startDateStr);
+                            LocalDate endDate = DateUtils.parseDate(endDateStr);
+
+                            if (startDate == null || endDate == null || !DateUtils.isValidDateRange(startDate, endDate)) {
+                                System.out.println("❌ Invalid date input. Please try again.");
+                                break;
+                            }
+
+                            long totalDays = DateUtils.daysBetween(startDate, endDate);
+                            double dailyRate = rentalService.getCarDailyRate(carId);
+                            if (dailyRate < 0) {
+                                System.out.println("❌ Invalid car ID.");
+                                break;
+                            }
+
+                            double totalCost = totalDays * dailyRate;
+                            System.out.printf("Total cost for %d days: $%.2f\n", totalDays, totalCost);
+                            System.out.print("Do you want to proceed with the payment? (yes/no): ");
+                            String confirm = scanner.nextLine();
+
+                            if (confirm.equalsIgnoreCase("yes")) {
+                                rentalService.rentCar(loggedInCustomer, carId, startDate, endDate);
+                            } else {
+                                System.out.println("❌ Rental cancelled.");
+                            }
+                        }
+                        break;
+
+                    case 3:
+                        rentalService.returnCar(loggedInCustomer);
+                        break;
+
+                    case 4:
                         loggedInCustomer = null;
                         System.out.println("🔒 Logged out.");
-                    }
-                    break;
+                        break;
 
-                case 0:
-                    System.out.println("👋 Goodbye!");
-                    scanner.close();
-                    return;
+                    case 0:
+                        System.out.println("👋 Goodbye!");
+                        scanner.close();
+                        return;
 
-                default:
-                    System.out.println("❌ Invalid choice.");
+                    default:
+                        System.out.println("❌ Invalid choice.");
+                }
             }
         }
     }

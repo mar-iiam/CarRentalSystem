@@ -3,37 +3,34 @@ package services;
 import Models.Car;
 import Models.CarStatus;
 import Models.Customer;
+import utils.DateUtils;
 import utils.passwordUtils;
+
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDate;
+import java.util.*;
 
 public class RentalService {
     private static final String CUSTOMER_FILE = "customers.txt";
+    private static final String CAR_FILE = "Cars.txt";
+    private static final String RENTAL_FILE = "rentals.txt";
+
     private Map<String, Customer> customers;
     private List<Car> cars;
-
-    public Customer getCustomer(String id) {
-        return customers.get(id);
-    }
 
     public RentalService() {
         customers = new HashMap<>();
         cars = new ArrayList<>();
         loadCustomersFromFile();
-        loadCars(); // initialize cars
+        loadCarsFromFile();
     }
-    private void loadCars() {
-        cars.add(new Car("CAR001", "Toyota", "Corolla", 40.0));
-        cars.add(new Car("CAR002", "Honda", "Civic", 45.0));
-        cars.add(new Car("CAR003", "Ford", "Focus", 38.0));
-        cars.add(new Car("CAR004", "BMW", "3 Series", 70.0));
-        cars.add(new Car("CAR005", "Hyundai", "Elantra", 42.0));
+
+    public Customer getCustomer(String id) {
+        return customers.get(id);
     }
+
     public void showAvailableCars() {
-        System.out.println("\n🚗 Available Cars:");
+        System.out.println("\n🚗 Available Cars.txt:");
         boolean found = false;
         for (Car car : cars) {
             if (car.getStatus() == CarStatus.AVAILABLE) {
@@ -45,7 +42,6 @@ public class RentalService {
             System.out.println("No cars are available at the moment.");
         }
     }
-
 
     public boolean registerCustomer(String id, String name, String licenseNumber, String password) {
         if (customers.containsKey(id)) {
@@ -79,10 +75,6 @@ public class RentalService {
         return true;
     }
 
-
-
-
-
     private void saveCustomersToFile() {
         try (PrintWriter writer = new PrintWriter(new FileWriter(CUSTOMER_FILE))) {
             for (Customer c : customers.values()) {
@@ -111,7 +103,126 @@ public class RentalService {
         }
     }
 
-    public void listAllCustomers() {
-        customers.values().forEach(System.out::println);
+    public Car getCarById(String id) {
+        for (Car car : cars) {
+            if (car.getId().equalsIgnoreCase(id)) return car;
+        }
+        return null;
+    }
+
+    public boolean rentCar(Customer customer, String carId, LocalDate startDate, LocalDate endDate) {
+        if (customer.getRentedCarId() != null) {
+            System.out.println("⚠️ You already rented a car. Return it first.");
+            return false;
+        }
+
+        Car car = getCarById(carId);
+        if (car == null) {
+            System.out.println("❌ Car ID not found.");
+            return false;
+        }
+
+        if (car.getStatus() != CarStatus.AVAILABLE) {
+            System.out.println("❌ Car is not available.");
+            return false;
+        }
+
+        if (startDate == null || endDate == null || endDate.isBefore(startDate)) {
+            System.out.println("❌ Invalid dates provided.");
+            return false;
+        }
+
+        long rentalDays = DateUtils.daysBetween(startDate, endDate);
+        if (rentalDays <= 0) rentalDays = 1;
+
+        double totalPrice = rentalDays * car.getPricePerDay();
+
+        System.out.printf("\n--- Rental Summary ---\nCar: %s %s\nFrom: %s\nTo: %s\nDays: %d\nTotal Price: $%.2f\n",
+                car.getBrand(), car.getModel(), startDate, endDate, rentalDays, totalPrice);
+
+        System.out.print("Do you want to confirm and proceed to payment? (yes/no): ");
+        Scanner scanner = new Scanner(System.in);
+        String confirm = scanner.nextLine();
+
+        if (confirm.equalsIgnoreCase("yes")) {
+            car.setStatus(CarStatus.RENTED);
+            customer.setRentedCarId(car.getId());
+
+            System.out.println("💳 Processing payment...");
+            System.out.println("✅ Payment successful. Car rented!");
+
+            saveRentalToFile(customer.getId(), car.getId(), startDate, endDate);
+            saveCarsToFile();
+
+            return true;
+        } else {
+            System.out.println("❌ Rental cancelled.");
+            return false;
+        }
+    }
+
+    public boolean returnCar(Customer customer) {
+        String carId = customer.getRentedCarId();
+        if (carId == null) {
+            System.out.println("⚠️ You have not rented any car.");
+            return false;
+        }
+
+        Car car = getCarById(carId);
+        if (car != null) {
+            car.setStatus(CarStatus.AVAILABLE);
+        }
+        customer.setRentedCarId(null);
+
+        saveCarsToFile();
+        System.out.println("✅ Car returned successfully.");
+        return true;
+    }
+
+    public double getCarDailyRate(String carId) {
+        for (Car car : cars) {
+            if (car.getId().equalsIgnoreCase(carId) && car.getStatus() == CarStatus.AVAILABLE) {
+                return car.getPricePerDay();
+            }
+        }
+        return -1;
+    }
+
+    private void loadCarsFromFile() {
+        File file = new File(CAR_FILE);
+        if (!file.exists()) return;
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",", 5);
+                if (parts.length == 5) {
+                    Car car = new Car(parts[0], parts[1], parts[2], Double.parseDouble(parts[3]));
+                    car.setStatus(CarStatus.valueOf(parts[4]));
+                    cars.add(car);
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error loading cars: " + e.getMessage());
+        }
+    }
+
+    private void saveCarsToFile() {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(CAR_FILE))) {
+            for (Car car : cars) {
+                writer.println(car.getId() + "," + car.getBrand() + "," + car.getModel() + "," +
+                        car.getPricePerDay() + "," + car.getStatus());
+            }
+        } catch (IOException e) {
+            System.err.println("Error saving cars: " + e.getMessage());
+        }
+    }
+
+    private void saveRentalToFile(String customerId, String carId, LocalDate startDate, LocalDate endDate) {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(RENTAL_FILE, true))) {
+            writer.printf("%s,%s,%s,%s%n", customerId, carId, startDate, endDate);
+        } catch (IOException e) {
+            System.err.println("Error saving rental: " + e.getMessage());
+        }
     }
 }

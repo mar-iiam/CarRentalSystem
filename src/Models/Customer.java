@@ -7,12 +7,13 @@ public class Customer {
     private String name;
     private final String licenseNumber;
     private String password;
-
+    private String rentedCarId; // ID of the car customer is renting
     public Customer(String id, String name, String licenseNumber, String password) {
         this.id = id;
         this.name = name;
         this.licenseNumber = licenseNumber;
         this.password = password;
+        this.rentedCarId = null;
     }
 
     // Getters
@@ -42,4 +43,14 @@ public class Customer {
     public int hashCode() {
         return Objects.hash(id);
     }
+
+
+    public String getRentedCarId() {
+        return rentedCarId;
+    }
+
+    public void setRentedCarId(String rentedCarId) {
+        this.rentedCarId = rentedCarId;
+    }
+
 }
