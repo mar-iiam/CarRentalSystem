@@ -10,6 +10,7 @@ public class Main {
         RentalService rentalService = new RentalService();
         Scanner scanner = new Scanner(System.in);
         Customer loggedInCustomer = null;
+        boolean carsListShowed = false;
 
         while (true) {
             System.out.println("\n--- Car Rental System ---");
@@ -19,10 +20,17 @@ public class Main {
                 System.out.println("2. Login");
                 System.out.println("0. Exit");
             } else {
-                System.out.println("1. View Available Cars");
-                System.out.println("2. Rent a Car");
-                System.out.println("3. Return Rented Car");
-                System.out.println("4. Logout");
+                if(carsListShowed){
+                    System.out.println("1. Rent a Car");
+                    System.out.println("2. Return Rented Car");
+                    System.out.println("3. Logout");
+                }else{
+                    System.out.println("1. View Available Cars");
+                    System.out.println("2. Rent a Car");
+                    System.out.println("3. Return Rented Car");
+                    System.out.println("4. Logout");
+                }
+
             }
 
 
@@ -65,8 +73,54 @@ public class Main {
             } else {
                 switch (choice) {
                     case 1:
-                        rentalService.showAvailableCars();
-                        break;
+                        if(carsListShowed){
+                            if (loggedInCustomer.getRentedCarId() != null) {
+                                System.out.println("⚠️ You already rented a car. Return it first.");
+                            } else {
+                                rentalService.showAvailableCars();
+
+                                System.out.print("Enter Car ID to rent: ");
+                                String carId = scanner.nextLine();
+
+                                System.out.print("Enter Start Date (yyyy-MM-dd): ");
+                                String startDateStr = scanner.nextLine();
+                                System.out.print("Enter End Date (yyyy-MM-dd): ");
+                                String endDateStr = scanner.nextLine();
+
+                                LocalDate startDate = DateUtils.parseDate(startDateStr);
+                                LocalDate endDate = DateUtils.parseDate(endDateStr);
+
+                                if (startDate == null || endDate == null || !DateUtils.isValidDateRange(startDate, endDate)) {
+                                    System.out.println("❌ Invalid date input. Please try again.");
+                                    break;
+                                }
+
+                                long totalDays = DateUtils.daysBetween(startDate, endDate);
+                                double dailyRate = rentalService.getCarDailyRate(carId);
+                                if (dailyRate < 0) {
+                                    System.out.println("❌ Invalid car ID.");
+                                    break;
+                                }
+
+                                double totalCost = totalDays * dailyRate;
+                                System.out.printf("Total cost for %d days: $%.2f\n", totalDays, totalCost);
+                                System.out.print("Do you want to proceed with the payment? (yes/no): ");
+                                String confirm = scanner.nextLine();
+
+                                if (confirm.equalsIgnoreCase("yes")) {
+                                    rentalService.rentCar(loggedInCustomer, carId, startDate, endDate);
+                                } else {
+                                    System.out.println("❌ Rental cancelled.");
+                                }
+                            }
+                            break;
+
+                        }else{
+                            carsListShowed = true ;
+                            rentalService.showAvailableCars();
+                            break;
+                        }
+
 
                     case 2:
                         if (loggedInCustomer.getRentedCarId() != null) {

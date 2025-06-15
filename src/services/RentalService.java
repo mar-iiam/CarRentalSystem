@@ -14,7 +14,7 @@ public class RentalService {
     private static final String CUSTOMER_FILE = "customers.txt";
     private static final String CAR_FILE = "Cars.txt";
     private static final String RENTAL_FILE = "rentals.txt";
-
+    private Map<String, Integer> loginAttempts;
     private Map<String, Customer> customers;
     private List<Car> cars;
 
@@ -23,6 +23,7 @@ public class RentalService {
         cars = new ArrayList<>();
         loadCustomersFromFile();
         loadCarsFromFile();
+        this.loginAttempts = new HashMap<>();
     }
 
     public Customer getCustomer(String id) {
@@ -58,19 +59,38 @@ public class RentalService {
     }
 
     public boolean login(String id, String password) {
+        final int MAX_LOGIN_ATTEMPTS = 3;
+
+        // Initialize login attempts for the customer if they haven't tried before
+        loginAttempts.putIfAbsent(id, 0);
+
+        // Check if the customer has exceeded the maximum login attempts
+        if (loginAttempts.size() >= MAX_LOGIN_ATTEMPTS) {
+            System.out.println("❌ Login failed: You have exceeded the maximum login attempts.");
+            System.out.println("Please call customer services at 1999.");
+            System.exit(0); // Exit the program
+            return false; // This line won't be reached due to System.exit(0)
+        }
+
         Customer customer = customers.get(id);
 
         if (customer == null) {
             System.out.println("❌ Login failed: Customer ID not found.");
+            // Increment attempts even for non-existent IDs to prevent enumeration attacks
+            loginAttempts.compute(id, (k, v) -> v + 1);
             return false;
         }
 
         String hashedInput = passwordUtils.hashPassword(password);
         if (!customer.getPassword().equals(hashedInput)) {
             System.out.println("❌ Login failed: Incorrect password.");
+            // Increment attempts on incorrect password
+            loginAttempts.compute(id, (k, v) -> v + 1);
             return false;
         }
 
+        // If login is successful, reset login attempts for this customer
+        loginAttempts.put(id, 0);
         System.out.println("✅ Login successful. Welcome, " + customer.getName() + "!");
         return true;
     }
