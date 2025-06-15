@@ -8,6 +8,8 @@ import utils.passwordUtils;
 
 import java.io.*;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 public class RentalService {
@@ -129,10 +131,75 @@ public class RentalService {
         }
         return null;
     }
+    private boolean isCustomerRentingNow(String customerId) {
+        File file = new File("rentals.txt");
+        if (!file.exists()) return false;
 
+        LocalDate today = LocalDate.now();
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
+                if (parts.length < 4) continue;
+
+                String id = parts[0];
+                LocalDate endDate = LocalDate.parse(parts[3]);
+
+                if (id.equals(customerId) && !endDate.isBefore(today)) {
+                    return true; // User has an ongoing or upcoming rental
+                }
+            }
+        } catch (IOException | DateTimeParseException e) {
+            System.err.println("Error reading rentals file: " + e.getMessage());
+        }
+
+        return false;
+    }
+    public static boolean luhnCheck(String cardNumber) {
+        int sum = 0;
+        boolean alternate = false;
+
+        for (int i = cardNumber.length() - 1; i >= 0; i--) {
+            int n = Integer.parseInt(cardNumber.substring(i, i + 1));
+            if (alternate) {
+                n *= 2;
+                if (n > 9) {
+                    n = (n % 10) + 1;  // or n -= 9;
+                }
+            }
+            sum += n;
+            alternate = !alternate;
+        }
+
+        return (sum % 10 == 0);
+    }
+    public static boolean processVisaPayment(String cardNumber, String cvv, double amount) {
+        System.out.println("🔄 Connecting to Visa payment gateway...");
+
+        try {
+            Thread.sleep(1500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Check if card number is valid VISA format and passes Luhn
+        if (!cardNumber.startsWith("4") || cardNumber.length() != 16 || !luhnCheck(cardNumber)) {
+            System.out.println("❌ Payment declined: Invalid or fake card number.");
+            return false;
+        }
+
+        if (!cvv.matches("\\d{3}")) {
+            System.out.println("❌ Payment declined: Invalid CVV.");
+            return false;
+        }
+
+        System.out.printf("✅ Payment of $%.2f approved.\n", amount);
+        return true;
+    }
     public boolean rentCar(Customer customer, String carId, LocalDate startDate, LocalDate endDate) {
-        if (customer.getRentedCarId() != null) {
-            System.out.println("⚠️ You already rented a car. Return it first.");
+        if (isCustomerRentingNow(customer.getId())) {
+            System.out.println("⚠️ You already rented a car (according to rentals file). Return it first.");
             return false;
         }
 
@@ -160,26 +227,51 @@ public class RentalService {
         System.out.printf("\n--- Rental Summary ---\nCar: %s %s\nFrom: %s\nTo: %s\nDays: %d\nTotal Price: $%.2f\n",
                 car.getBrand(), car.getModel(), startDate, endDate, rentalDays, totalPrice);
 
-        System.out.print("Do you want to confirm and proceed to payment? (yes/no): ");
         Scanner scanner = new Scanner(System.in);
+        System.out.print("Do you want to confirm and proceed to payment? (yes/no): ");
         String confirm = scanner.nextLine();
 
-        if (confirm.equalsIgnoreCase("yes")) {
-            car.setStatus(CarStatus.RENTED);
-            customer.setRentedCarId(car.getId());
-
-            System.out.println("💳 Processing payment...");
-            System.out.println("✅ Payment successful. Car rented!");
-
-            saveRentalToFile(customer.getId(), car.getId(), startDate, endDate);
-            saveCarsToFile();
-
-            return true;
-        } else {
+        if (!confirm.equalsIgnoreCase("yes")) {
             System.out.println("❌ Rental cancelled.");
             return false;
         }
+
+        // Payment menu
+        System.out.print("Choose payment method (cash/visa): ");
+        String paymentMethod = scanner.nextLine().toLowerCase();
+
+        if (paymentMethod.equals("visa")) {
+            System.out.print("Enter card number (16 digits): ");
+            String cardNumber = scanner.nextLine();
+
+            System.out.print("Enter CVV (3 digits): ");
+            String cvv = scanner.nextLine();
+
+            boolean paymentSuccess = processVisaPayment(cardNumber, cvv, totalPrice);
+            if (!paymentSuccess) {
+                System.out.println("❌ Rental cancelled due to failed payment.");
+                return false;
+            }
+
+        } else if (paymentMethod.equals("cash")) {
+            System.out.println("💵 Please pay at the counter when picking up the car.");
+        } else {
+            System.out.println("❌ Invalid payment method.");
+            return false;
+        }
+
+        // Finalize rental
+        car.setStatus(CarStatus.RENTED);
+        customer.setRentedCarId(car.getId());
+
+        System.out.println("✅ Car rented successfully!");
+
+        saveRentalToFile(customer.getId(), car.getId(), startDate, endDate);
+        saveCarsToFile();
+
+        return true;
     }
+
 
     public boolean returnCar(Customer customer) {
         String carId = customer.getRentedCarId();
@@ -194,10 +286,39 @@ public class RentalService {
         }
         customer.setRentedCarId(null);
 
+        // Load rental end date from file
+        LocalDate actualReturnDate = LocalDate.now();
+        LocalDate rentalEndDate = null;
+
+        try (BufferedReader reader = new BufferedReader(new FileReader("rentals.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
+                if (parts.length >= 4 &&
+                        parts[0].equals(customer.getId()) &&
+                        parts[1].equals(carId)) {
+                    rentalEndDate = LocalDate.parse(parts[3]);
+                    break;
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("⚠️ Failed to read rentals file.");
+        }
+
+        if (rentalEndDate != null) {
+            long daysLate = ChronoUnit.DAYS.between(rentalEndDate, actualReturnDate);
+            if (daysLate > 2) {
+                double penalty = (daysLate - 2) * 50; // $50 per day after 2-day grace
+                System.out.printf("⚠️ Car is returned %d days late.\n", daysLate);
+                System.out.printf("💸 Late return penalty: $%.2f\n", penalty);
+            }
+        }
+
         saveCarsToFile();
         System.out.println("✅ Car returned successfully.");
         return true;
     }
+
 
     public double getCarDailyRate(String carId) {
         for (Car car : cars) {

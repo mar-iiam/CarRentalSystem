@@ -123,50 +123,63 @@ public class Main {
 
 
                     case 2:
-                        if (loggedInCustomer.getRentedCarId() != null) {
-                            System.out.println("⚠️ You already rented a car. Return it first.");
-                        } else {
-                            rentalService.showAvailableCars();
-
-                            System.out.print("Enter Car ID to rent: ");
-                            String carId = scanner.nextLine();
-
-                            System.out.print("Enter Start Date (yyyy-MM-dd): ");
-                            String startDateStr = scanner.nextLine();
-                            System.out.print("Enter End Date (yyyy-MM-dd): ");
-                            String endDateStr = scanner.nextLine();
-
-                            LocalDate startDate = DateUtils.parseDate(startDateStr);
-                            LocalDate endDate = DateUtils.parseDate(endDateStr);
-
-                            if (startDate == null || endDate == null || !DateUtils.isValidDateRange(startDate, endDate)) {
-                                System.out.println("❌ Invalid date input. Please try again.");
-                                break;
-                            }
-
-                            long totalDays = DateUtils.daysBetween(startDate, endDate);
-                            double dailyRate = rentalService.getCarDailyRate(carId);
-                            if (dailyRate < 0) {
-                                System.out.println("❌ Invalid car ID.");
-                                break;
-                            }
-
-                            double totalCost = totalDays * dailyRate;
-                            System.out.printf("Total cost for %d days: $%.2f\n", totalDays, totalCost);
-                            System.out.print("Do you want to proceed with the payment? (yes/no): ");
-                            String confirm = scanner.nextLine();
-
-                            if (confirm.equalsIgnoreCase("yes")) {
-                                rentalService.rentCar(loggedInCustomer, carId, startDate, endDate);
+                        if(carsListShowed){
+                            rentalService.returnCar(loggedInCustomer);
+                            break;
+                        }else {
+                            if (loggedInCustomer.getRentedCarId() != null) {
+                                System.out.println("⚠️ You already rented a car. Return it first.");
                             } else {
-                                System.out.println("❌ Rental cancelled.");
+                                rentalService.showAvailableCars();
+
+                                System.out.print("Enter Car ID to rent: ");
+                                String carId = scanner.nextLine();
+
+                                System.out.print("Enter Start Date (yyyy-MM-dd): ");
+                                String startDateStr = scanner.nextLine();
+                                System.out.print("Enter End Date (yyyy-MM-dd): ");
+                                String endDateStr = scanner.nextLine();
+
+                                LocalDate startDate = DateUtils.parseDate(startDateStr);
+                                LocalDate endDate = DateUtils.parseDate(endDateStr);
+
+                                if (startDate == null || endDate == null || !DateUtils.isValidDateRange(startDate, endDate)) {
+                                    System.out.println("❌ Invalid date input. Please try again.");
+                                    break;
+                                }
+
+                                long totalDays = DateUtils.daysBetween(startDate, endDate);
+                                double dailyRate = rentalService.getCarDailyRate(carId);
+                                if (dailyRate < 0) {
+                                    System.out.println("❌ Invalid car ID.");
+                                    break;
+                                }
+
+                                double totalCost = totalDays * dailyRate;
+                                System.out.printf("Total cost for %d days: $%.2f\n", totalDays, totalCost);
+                                System.out.print("Do you want to proceed with the payment? (yes/no): ");
+                                String confirm = scanner.nextLine();
+
+                                if (confirm.equalsIgnoreCase("yes")) {
+                                    rentalService.rentCar(loggedInCustomer, carId, startDate, endDate);
+                                } else {
+                                    System.out.println("❌ Rental cancelled.");
+                                }
                             }
+                            break;
+
                         }
-                        break;
 
                     case 3:
-                        rentalService.returnCar(loggedInCustomer);
-                        break;
+                        if(carsListShowed){
+                            loggedInCustomer = null;
+                            System.out.println("🔒 Logged out.");
+                            break;
+                        }else {
+                            rentalService.returnCar(loggedInCustomer);
+                            break;
+                        }
+
 
                     case 4:
                         loggedInCustomer = null;
