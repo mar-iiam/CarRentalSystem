@@ -8,6 +8,7 @@ import utils.passwordUtils;
 
 import java.io.*;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 public class RentalService {
@@ -129,13 +130,36 @@ public class RentalService {
         }
         return null;
     }
+    private boolean isCustomerRentingNow(String customerId) {
+        File file = new File("rentals.txt");
+        if (!file.exists()) return false;
 
-    public boolean rentCar(Customer customer, String carId, LocalDate startDate, LocalDate endDate) {
-        if (customer.getRentedCarId() != null) {
-            System.out.println("⚠️ You already rented a car. Return it first.");
-            return false;
+        LocalDate today = LocalDate.now();
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
+                if (parts.length < 4) continue;
+
+                String id = parts[0];
+                LocalDate endDate = LocalDate.parse(parts[3]);
+
+                if (id.equals(customerId) && !endDate.isBefore(today)) {
+                    return true; // User has an ongoing or upcoming rental
+                }
+            }
+        } catch (IOException | DateTimeParseException e) {
+            System.err.println("Error reading rentals file: " + e.getMessage());
         }
 
+        return false;
+    }
+    public boolean rentCar(Customer customer, String carId, LocalDate startDate, LocalDate endDate) {
+        if (isCustomerRentingNow(customer.getId())) {
+            System.out.println("⚠️ You already rented a car (according to rentals file). Return it first.");
+            return false;
+        }
         Car car = getCarById(carId);
         if (car == null) {
             System.out.println("❌ Car ID not found.");
