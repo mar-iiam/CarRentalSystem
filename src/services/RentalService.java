@@ -52,13 +52,22 @@ public class RentalService {
             return false;
         }
 
+        // Determine type based on ID
+        String type;
+        if (id.matches("200\\d{2}")) {
+            type = "admin";
+        } else {
+            type = "customer";
+        }
+
         String hashedPassword = passwordUtils.hashPassword(password);
-        Customer newCustomer = new Customer(id, name, licenseNumber, hashedPassword);
+        Customer newCustomer = new Customer(id, name, licenseNumber, hashedPassword, type);
         customers.put(id, newCustomer);
         saveCustomersToFile();
-        System.out.println("✅ Registration successful.");
+        System.out.printf("✅ %s registered successfully.\n", type.substring(0, 1).toUpperCase() + type.substring(1));
         return true;
     }
+
 
     public boolean login(String id, String password) {
         final int MAX_LOGIN_ATTEMPTS = 3;
@@ -97,15 +106,23 @@ public class RentalService {
         return true;
     }
 
-    private void saveCustomersToFile() {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(CUSTOMER_FILE))) {
-            for (Customer c : customers.values()) {
-                writer.println(c.getId() + "," + c.getName() + "," + c.getLicenseNumber() + "," + c.getPassword());
+    public void saveCustomersToFile() {
+        try (PrintWriter writer = new PrintWriter(new FileWriter("customers.txt"))) {
+            for (Customer customer : customers.values()) {
+                writer.printf("%s,%s,%s,%s,%s,%s%n",
+                        customer.getId(),
+                        customer.getName(),
+                        customer.getLicenseNumber(),
+                        customer.getPassword(),
+                        customer.getType(),
+                        customer.getRentedCarId() != null ? customer.getRentedCarId() : "null"
+                );
             }
         } catch (IOException e) {
-            System.err.println("Error saving customers: " + e.getMessage());
+            System.out.println("❌ Error saving customers to file: " + e.getMessage());
         }
     }
+
 
     private void loadCustomersFromFile() {
         File file = new File(CUSTOMER_FILE);
@@ -114,16 +131,25 @@ public class RentalService {
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                String[] parts = line.split(",", 4);
-                if (parts.length == 4) {
-                    Customer customer = new Customer(parts[0], parts[1], parts[2], parts[3]);
-                    customers.put(parts[0], customer);
+                String[] parts = line.split(",", 6);
+                if (parts.length == 6) {
+                    String id = parts[0];
+                    String name = parts[1];
+                    String licenseNumber = parts[2];
+                    String password = parts[3];
+                    String type = parts[4];
+                    String rentedCarId = parts[5].equalsIgnoreCase("null") ? null : parts[5];
+
+                    Customer customer = new Customer(id, name, licenseNumber, password, type);
+                    customer.setRentedCarId(rentedCarId);
+                    customers.put(id, customer);
                 }
             }
         } catch (IOException e) {
             System.err.println("Error loading customers: " + e.getMessage());
         }
     }
+
 
     public Car getCarById(String id) {
         for (Car car : cars) {
@@ -366,4 +392,55 @@ public class RentalService {
             System.err.println("Error saving rental: " + e.getMessage());
         }
     }
+
+    public void showAllCustomers() {
+        if (customers.isEmpty()) {
+            System.out.println("📭 No customers found in the system.");
+            return;
+        }
+
+        System.out.println("\n👥 All Registered Customers:");
+        for (Customer customer : customers.values()) {
+            System.out.printf("ID: %s | Name: %s | License: %s | Type: %s",
+                    customer.getId(),
+                    customer.getName(),
+                    customer.getLicenseNumber(),
+                    customer.getType());
+
+            // Show rented car info only for regular customers
+            if ("customer".equalsIgnoreCase(customer.getType())) {
+                System.out.printf(" | Rented Car: %s",
+                        customer.getRentedCarId() != null ? customer.getRentedCarId() : "None");
+            }
+
+            System.out.println();
+        }
+    }
+
+    public boolean addCar(String carId, String brand, String model, double pricePerDay) {
+        if (getCarById(carId) != null) {
+            System.out.println("❌ A car with this ID already exists.");
+            return false;
+        }
+
+        if (pricePerDay <= 0) {
+            System.out.println("❌ Price must be greater than zero.");
+            return false;
+        }
+
+        Car newCar = new Car(carId, brand, model, pricePerDay);
+        newCar.setStatus(CarStatus.AVAILABLE);
+
+        cars.add(newCar);
+        saveCarsToFile();
+
+        System.out.println("✅ Car added successfully.");
+        return true;
+    }
+
+
+
+
+
+
 }

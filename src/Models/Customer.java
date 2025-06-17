@@ -8,12 +8,16 @@ public class Customer {
     private final String licenseNumber;
     private String password;
     private String rentedCarId; // ID of the car customer is renting
-    public Customer(String id, String name, String licenseNumber, String password) {
+    private String type; // "admin" or "customer"
+
+    // Updated constructor with type
+    public Customer(String id, String name, String licenseNumber, String password, String type) {
         this.id = id;
         this.name = name;
         this.licenseNumber = licenseNumber;
         this.password = password;
         this.rentedCarId = null;
+        this.type = type;
     }
 
     // Getters
@@ -21,14 +25,18 @@ public class Customer {
     public String getName() { return name; }
     public String getLicenseNumber() { return licenseNumber; }
     public String getPassword() { return password; }
+    public String getRentedCarId() { return rentedCarId; }
+    public String getType() { return type; }
 
     // Setters
     public void setName(String name) { this.name = name; }
     public void setPassword(String password) { this.password = password; }
+    public void setRentedCarId(String rentedCarId) { this.rentedCarId = rentedCarId; }
+    public void setType(String type) { this.type = type; }
 
     @Override
     public String toString() {
-        return String.format("Customer{id='%s', name='%s', license='%s'}", id, name, licenseNumber);
+        return String.format("Customer{id='%s', name='%s', license='%s', type='%s'}", id, name, licenseNumber, type);
     }
 
     @Override
@@ -43,14 +51,4 @@ public class Customer {
     public int hashCode() {
         return Objects.hash(id);
     }
-
-
-    public String getRentedCarId() {
-        return rentedCarId;
-    }
-
-    public void setRentedCarId(String rentedCarId) {
-        this.rentedCarId = rentedCarId;
-    }
-
 }
